@@ -1,4 +1,4 @@
-import { Reducer } from 'redux'
+import { Reducer, AnyAction, Action } from 'redux'
 import {
   ActionCreatorWithoutPayload,
   createAction,
@@ -41,7 +41,7 @@ export interface Slice<
   /**
    * The slice's reducer.
    */
-  reducer: Reducer<State>
+  reducer: Reducer<State, SliceActionType<Name, CaseReducers>>
 
   /**
    * Action creators for the types of actions that are handled by the slice
@@ -153,6 +153,43 @@ export type SliceCaseReducers<State> = {
     | CaseReducer<State, PayloadAction<any>>
     | CaseReducerWithPrepare<State, PayloadAction<any, string, any, any>>
 }
+
+/**
+ * Retrieves the action type of the slice using the case reducers.
+ */
+type SliceActionType<
+  Name extends string,
+  CaseReducers extends SliceCaseReducers<any>
+> = {
+  [Type in keyof CaseReducers]: CaseReducers[Type] extends { prepare: any }
+    ? AnyAction
+    : ActionFromCaseReducer<
+        CaseReducers[Type],
+        Type extends string ? Type : string,
+        Name
+      >
+}[keyof CaseReducers]
+
+/**
+ * Gets an action type given a case reducer, the slice's name, and the type.
+ */
+type ActionFromCaseReducer<
+  CR,
+  Name extends string,
+  Type extends string
+> = CR extends (state: any, action: infer A) => any
+  ? A extends PayloadAction<infer P>
+    ? PayloadAction<P, ScopedActionType<Name, Type>>
+    : Action<ScopedActionType<Name, Type>>
+  : Action<ScopedActionType<Name, Type>>
+
+/**
+ * The action type of an action in a slice with the given name.
+ */
+type ScopedActionType<
+  Name extends string,
+  Type extends string
+> = `${Name}/${Type}`
 
 /**
  * Derives the slice's `actions` property from the `reducers` options
